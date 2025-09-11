@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: falkordb
+    restart: unless-stopped
+    # No 6379 port mapping -> only accessible on the internal network
+    # If you want the browser UI, uncomment the next two lines:
+    ports:
+      - "3000:3000" # FalkorDB Browser UI (optional)
+    # environment:
+    # - REDIS_ARGS=--requirepass yourStrongPassword
+    # Optional: enable Bolt protocol if you need it (remember to map port 7687 if exposing)
+    # - FALKORDB_ARGS=BOLT_PORT 7687
+    volumes:
+      - falkordb_data:/data
+    networks:
+      - backend
+    depends_on:
+      - redis-internal
+
+  # Extra Redis visible ONLY on the internal network
+  redis-internal:
+    image: redis:7-alpine
+    container_name: redis-internal
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    # No ports: means not exposed to the host
+
+volumes:
+  falkordb_data:
+  redis_data:
+
+networks:
+  backend:
+    driver: bridge
+    internal: true # isolates this network from external/host access
