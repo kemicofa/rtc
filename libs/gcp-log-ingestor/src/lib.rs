@@ -29,7 +29,7 @@ impl GCPLogIngestor {
     }
 
     pub async fn run<F, Fut>(&self, callback: F) -> Result<()>
-        where F: Fn(LogEntry) -> Fut + Send + Sync, Fut: Future<Output = ()> + Send
+        where F: Fn(LogEntry) -> Fut + Send + Sync, Fut: Future<Output = ()>
     {
         let mut page: i32 = 0;
         loop {
@@ -55,6 +55,7 @@ impl GCPLogIngestor {
             }
 
             if response.next_page_token.is_empty() {
+                debug!("Stopping because next page token is empty");
                 break;
             }
 

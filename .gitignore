@@ -65,4 +65,8 @@ out/
 
 # Volumes persisting data from falkordb and redis
 data
+
+# Don't persist any rtc.config.*.json except rtc.config.sample.json
+rtc.config.*.json
+!rtc.config.sample.json
 # ========== End of gitignore ==========
