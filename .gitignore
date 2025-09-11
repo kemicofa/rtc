@@ -1,0 +1,68 @@
+# ========== Rust workspace .gitignore ==========
+
+# Ignore the target directory (all build artifacts)
+target/
+
+# If you have a custom target directory set up in .cargo/config or via env
+# then ignore that too, e.g.:
+# /path/to/custom_target/
+
+# Cargo generated lockfile
+# - For workspaces with binaries, often you want to include Cargo.lock
+# - For libraries, some prefer ignoring it. Uncomment if you want to ignore.
+# Cargo.lock
+
+# Compiled library files (Rust produces rlib, dll/so etc.)
+**/*.rlib
+**/*.so
+**/*.dylib
+**/*.dll
+
+# Backup files from editors / tools
+**/*.rs.bk
+
+# Miscellaneous build files / artifacts
+**/*.exe
+**/*.o
+**/*.d
+**/*.a
+
+# Debug info files from MSVC Windows builds
+*.pdb
+
+# Mac / Linux specific
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*~
+
+# Optional: files for specific tools, e.g., profiler outputs, etc.
+# e.g., for flamegraph / criterion /bench etc., you might have:
+# bench/
+# flame/
+# profiling_output/
+
+# If you use temporary files or secrets
+.env
+.env.*     # e.g. .env.local
+Secrets*.toml
+
+# Node / web front-end (if you have frontend parts in workspace)
+node_modules/
+dist/
+
+# If you have generated code or bindings
+# e.g., with bindgen, protobuf, etc.
+gen/
+out/
+
+# Volumes persisting data from falkordb and redis
+data
+# ========== End of gitignore ==========

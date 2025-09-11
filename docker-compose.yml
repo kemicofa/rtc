@@ -5,9 +5,9 @@ services:
     image: falkordb/falkordb:latest
     container_name: falkordb
     restart: unless-stopped
-    # No 6379 port mapping -> only accessible on the internal network
     # If you want the browser UI, uncomment the next two lines:
     ports:
+      - "6379:6379" #
       - "3000:3000" # FalkorDB Browser UI (optional)
     # environment:
     # - REDIS_ARGS=--requirepass yourStrongPassword

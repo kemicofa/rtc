@@ -1,0 +1,8 @@
+[package]
+name = "service-graph-builder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+falkordb = { version = "0.1.11", features = ["tokio"] }
+anyhow = "1"

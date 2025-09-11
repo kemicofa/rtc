@@ -1,0 +1,10 @@
+[package]
+name = "gcp-log-ingestor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+google-cloud-logging-v2 = "1"
+tracing = "0.1"
+tokio = { version = "1", features = ["time"] }

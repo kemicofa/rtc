@@ -1,0 +1,66 @@
+use google_cloud_logging_v2::{ client::LoggingServiceV2, model::LogEntry };
+use anyhow::{ Ok, Result };
+use tokio::time::{ sleep, Duration };
+use tracing::{ debug, info };
+
+pub struct GCPLogIngestor {
+    project_id: String,
+    log_filter: String,
+    client: LoggingServiceV2,
+    page_size: i32,
+    max_pages: i32,
+}
+
+impl GCPLogIngestor {
+    pub async fn new(
+        project_id: String,
+        page_size: i32,
+        max_pages: i32,
+        log_filter: String
+    ) -> Result<Self> {
+        let client = LoggingServiceV2::builder().build().await?; // Uses ADC by default
+        Ok(Self {
+            client,
+            project_id,
+            log_filter,
+            page_size,
+            max_pages,
+        })
+    }
+
+    pub async fn run<F, Fut>(&self, callback: F) -> Result<()>
+        where F: Fn(LogEntry) -> Fut + Send + Sync, Fut: Future<Output = ()> + Send
+    {
+        let mut page: i32 = 0;
+        loop {
+            page += 1;
+
+            if page > self.max_pages {
+                break;
+            }
+
+            info!("{}/{}. Fetching {} log entries", page, self.max_pages, self.page_size);
+            let response = self.client
+                .list_log_entries()
+                .set_resource_names([format!("projects/{}", self.project_id)])
+                .set_filter(&self.log_filter)
+                .set_page_size(self.page_size)
+                .send().await?;
+
+            debug!("Found {} results on page {}", response.entries.len(), page);
+
+            for e in response.entries {
+                debug!("{:?}", e);
+                callback(e).await;
+            }
+
+            if response.next_page_token.is_empty() {
+                break;
+            }
+
+            sleep(Duration::from_secs(2)).await; // basic polling interval
+        }
+
+        Ok(())
+    }
+}
