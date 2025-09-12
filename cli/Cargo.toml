@@ -5,13 +5,11 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-google-cloud-logging-v2 = "1"
 dotenvy = "0.15.7"
 gcp-log-ingestor = { path = "../libs/gcp-log-ingestor" }
 service-graph-builder = { path = "../libs/service-graph-builder" }
 common = { path = "../libs/common" }
 tracing = "0.1"
-chrono = "0.4.42"
-google-cloud-wkt = { version = "1", features = ["chrono"] }
 anyhow = "1"
 clap = { version = "4.5.47", features = ["derive"] }
+gcp-traces = { path = "../libs/gcp-traces"}

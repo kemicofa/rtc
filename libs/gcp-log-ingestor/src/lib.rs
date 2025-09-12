@@ -1,7 +1,12 @@
-use google_cloud_logging_v2::{ client::LoggingServiceV2, model::LogEntry };
+use google_cloud_logging_v2::{ client::LoggingServiceV2 };
 use anyhow::{ Ok, Result };
 use tokio::time::{ sleep, Duration };
-use tracing::{ debug, info };
+use tracing::{ debug, info, warn };
+
+use crate::{ consts::DEFAULT_LOG_FILTER, normalize::{ NormalizedLogEntry, normalize_log_entry } };
+
+mod consts;
+pub mod normalize;
 
 pub struct GCPLogIngestor {
     project_id: String,
@@ -16,21 +21,24 @@ impl GCPLogIngestor {
         project_id: String,
         page_size: i32,
         max_pages: i32,
-        log_filter: String
+        log_filter: Option<String>
     ) -> Result<Self> {
         let client = LoggingServiceV2::builder().build().await?; // Uses ADC by default
+
+        let internal_log_filter: String = log_filter.map_or(DEFAULT_LOG_FILTER.into(), |v|
+            [DEFAULT_LOG_FILTER, v.as_str()].join(" AND ")
+        );
+
         Ok(Self {
             client,
             project_id,
-            log_filter,
+            log_filter: internal_log_filter,
             page_size,
             max_pages,
         })
     }
 
-    pub async fn run<F, Fut>(&self, callback: F) -> Result<()>
-        where F: Fn(LogEntry) -> Fut + Send + Sync, Fut: Future<Output = ()>
-    {
+    pub async fn run<F>(&self, callback: F) -> Result<()> where F: Fn(NormalizedLogEntry) -> () {
         let mut page: i32 = 0;
         loop {
             page += 1;
@@ -51,7 +59,14 @@ impl GCPLogIngestor {
 
             for e in response.entries {
                 debug!("{:?}", e);
-                callback(e).await;
+                let log_entry = normalize_log_entry(e);
+
+                if log_entry.is_err() {
+                    warn!("Skipping log entry: {}", log_entry.unwrap_err());
+                    continue;
+                }
+
+                callback(log_entry.unwrap());
             }
 
             if response.next_page_token.is_empty() {

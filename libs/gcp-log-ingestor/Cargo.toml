@@ -8,3 +8,4 @@ anyhow = "1"
 google-cloud-logging-v2 = "1"
 tracing = "0.1"
 tokio = { version = "1", features = ["time"] }
+url = "2"
