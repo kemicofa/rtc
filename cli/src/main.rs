@@ -8,10 +8,10 @@ use crate::ingest::ingest;
 
 mod cli;
 mod ingest;
+mod env;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenvy::dotenv()?;
     init_tracing();
 
     let cli = Cli::parse();

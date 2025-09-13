@@ -590,6 +590,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "google-cloud-logging-v2",
+ "regex",
  "tokio",
  "tracing",
  "url",

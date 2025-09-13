@@ -14,6 +14,7 @@ pub struct GCPLogIngestor {
     client: LoggingServiceV2,
     page_size: i32,
     max_pages: i32,
+    custom_path_regex: Option<String>,
 }
 
 impl GCPLogIngestor {
@@ -21,7 +22,8 @@ impl GCPLogIngestor {
         project_id: String,
         page_size: i32,
         max_pages: i32,
-        log_filter: Option<String>
+        log_filter: Option<String>,
+        custom_path_regex: Option<String>
     ) -> Result<Self> {
         let client = LoggingServiceV2::builder().build().await?; // Uses ADC by default
 
@@ -35,6 +37,7 @@ impl GCPLogIngestor {
             log_filter: internal_log_filter,
             page_size,
             max_pages,
+            custom_path_regex,
         })
     }
 
@@ -59,7 +62,7 @@ impl GCPLogIngestor {
 
             for e in response.entries {
                 debug!("{:?}", e);
-                let log_entry = normalize_log_entry(e);
+                let log_entry = normalize_log_entry(e, self.custom_path_regex.clone());
 
                 if log_entry.is_err() {
                     warn!("Skipping log entry: {}", log_entry.unwrap_err());
