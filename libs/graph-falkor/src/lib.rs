@@ -7,16 +7,17 @@ use logs_to_graph::{
     service_node_graph::{ Operation, ServiceName, ServiceNodeGraph, ServiceOperationId },
 };
 use tokio::sync::mpsc::Receiver;
-use tracing::{ warn };
+use tracing::{ debug, info, warn };
 
 use crate::consts::{
-    upsert_operation_cypher,
-    upsert_service_node_cypher,
-    upsert_service_node_to_operation_cypher,
-    upsert_service_to_service_operation_relation,
+    UPSERT_OPERATION_CYPHER,
+    UPSERT_SERVICE_NODE_CYPHER,
+    UPSERT_SERVICE_NODE_TO_OPERATION_CYPHER,
+    UPSERT_SERVICE_TO_SERVICE_OPERATION_RELATION,
 };
 
 mod consts;
+mod macros;
 
 pub struct GraphFalkor {
     client: FalkorAsyncClient,
@@ -34,9 +35,13 @@ impl GraphFalkor {
     }
 
     async fn upsert_service_node(&self, name: String) -> Result<()> {
-        let params: HashMap<String, String> = HashMap::from_iter([("name".into(), name)]);
+        info!("{}", name);
+        let params: HashMap<String, String> = HashMap::from_iter([
+            ("name".into(), stringy!(name.clone())),
+            ("id".into(), stringy!(name.clone())),
+        ]);
         let mut graph = self.client.select_graph(self.graph.clone());
-        graph.query(upsert_service_node_cypher).with_params(&params).execute().await?;
+        graph.query(UPSERT_SERVICE_NODE_CYPHER).with_params(&params).execute().await?;
         Ok(())
     }
 
@@ -46,24 +51,25 @@ impl GraphFalkor {
         service_operation_id: String,
         operation: Operation
     ) -> Result<()> {
+        info!("{}", service_operation_id);
         let operation_label = operation.get_label();
         let operation_params: HashMap<String, String> = HashMap::from_iter([
-            ("label".into(), operation_label.clone()),
-            ("id".into(), service_operation_id.clone()),
+            ("label".into(), stringy!(operation_label.clone())),
+            ("id".into(), stringy!(service_operation_id.clone())),
         ]);
 
         let mut graph = self.client.select_graph(self.graph.clone());
-        graph.query(upsert_operation_cypher).with_params(&operation_params).execute().await?;
+        graph.query(UPSERT_OPERATION_CYPHER).with_params(&operation_params).execute().await?;
 
         let service_node_to_operation_relation_params: HashMap<String, String> = HashMap::from_iter(
             [
-                ("id".into(), service_operation_id),
-                ("name".into(), name.clone()),
+                ("id".into(), stringy!(service_operation_id)),
+                ("name".into(), stringy!(name.clone())),
             ]
         );
 
         graph
-            .query(upsert_service_node_to_operation_cypher)
+            .query(UPSERT_SERVICE_NODE_TO_OPERATION_CYPHER)
             .with_params(&service_node_to_operation_relation_params)
             .execute().await?;
 
@@ -76,13 +82,13 @@ impl GraphFalkor {
         to_service_operation_id: String
     ) -> Result<()> {
         let params: HashMap<String, String> = HashMap::from_iter([
-            ("name".into(), from_service_name),
-            ("id".into(), to_service_operation_id),
+            ("name".into(), stringy!(from_service_name)),
+            ("id".into(), stringy!(to_service_operation_id)),
         ]);
 
         let mut graph = self.client.select_graph(self.graph.clone());
         graph
-            .query(upsert_service_to_service_operation_relation)
+            .query(UPSERT_SERVICE_TO_SERVICE_OPERATION_RELATION)
             .with_params(&params)
             .execute().await?;
 
@@ -91,8 +97,9 @@ impl GraphFalkor {
 
     async fn process(&mut self, service_node_graph: ServiceNodeGraph) -> Result<()> {
         let mut service_to_service_relations: Vec<(ServiceName, ServiceOperationId)> = vec![];
-
+        debug!("Processing service node graph");
         for (service_name, service_node) in service_node_graph.services.iter() {
+            debug!("Upserting service");
             let upsert_service_node_res = self.upsert_service_node(service_name.clone()).await;
 
             if upsert_service_node_res.is_err() {
@@ -102,6 +109,7 @@ impl GraphFalkor {
             }
 
             for (service_operation_id, operation) in service_node.operations.iter() {
+                debug!("Upserting service operation");
                 let upsert_service_node_operation_result = self.upsert_service_node_operation(
                     service_name.clone(),
                     service_operation_id.clone(),
@@ -126,6 +134,7 @@ impl GraphFalkor {
         }
 
         for (from_service_name, to_service_operation_id) in service_to_service_relations {
+            debug!("Upserting service invocation of service's operation");
             let upsert_service_to_service_operation_relation_res =
                 self.upsert_service_to_service_operation_relation(
                     from_service_name,
@@ -138,7 +147,7 @@ impl GraphFalkor {
                 return Ok(());
             }
         }
-
+        debug!("Done processing service_node_graph");
         Ok(())
     }
 }

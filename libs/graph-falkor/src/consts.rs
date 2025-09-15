@@ -1,28 +1,30 @@
-pub const upsert_service_node_cypher: &str =
+/*
+
+*/
+pub const UPSERT_SERVICE_NODE_CYPHER: &str =
     r#"
-    MERGE (s:ServiceNode {name: $name})
+    MERGE ( s:Service { name: $name })
     ON CREATE SET s.name = $name
     RETURN s
 "#;
 
-pub const upsert_operation_cypher: &str =
+pub const UPSERT_OPERATION_CYPHER: &str =
     r#"
     MERGE (o:Operation {id: $id})
-    ON CREATE o.label = $label, o.id = $id
+    ON CREATE SET o.label = $label, o.id = $id
     RETURN o
 "#;
 
-pub const upsert_service_node_to_operation_cypher: &str =
+pub const UPSERT_SERVICE_NODE_TO_OPERATION_CYPHER: &str =
     r#"
-    MATCH (s:ServiceNode {name: $name}), (o:Operation {id: $id})
+    MATCH (s:Service {name: $name}), (o:Operation {id: $id})
     MERGE (s)-[r:EXPOSES]-(o)
     RETURN r
 "#;
 
-pub const upsert_service_to_service_operation_relation: &str =
+pub const UPSERT_SERVICE_TO_SERVICE_OPERATION_RELATION: &str =
     r#"
-    MATCH (s:ServiceNode {name: $name}), (o:Operation {id: $id})
+    MATCH (s:Service {name: $name}), (o:Operation {id: $id})
     MERGE (s)-[r:INVOKES]->(o)
-    ON CREATE SET r.method = $method, r.path = $path
     RETURN r
 "#;
