@@ -1,19 +1,19 @@
-use std::{ collections::{ HashMap, HashSet }, sync::Arc };
+use std::{ collections::{ HashMap, HashSet } };
 
 use async_trait::async_trait;
-use common::{ marc, types::{ MArc } };
 use google_cloud_logging_v2::{ client::LoggingServiceV2 };
 use anyhow::{ Ok, Result, bail };
+use google_cloud_wkt::Timestamp;
 use logs_to_graph::{
     service_logs::ServiceLogs,
-    service_node_graph::{ self, Operation, ServiceName, ServiceNodeGraph },
+    service_node_graph::{ Operation, ServiceName, ServiceNodeGraph },
 };
-use tokio::{ sync::{ Mutex, mpsc::{ self, Sender } }, time::{ Duration, sleep } };
+use tokio::{ sync::{ mpsc::{ Sender } }, time::{ Duration, sleep } };
 use tracing::{ debug, error, info, warn };
 
 use crate::{
     consts::DEFAULT_LOG_FILTER,
-    normalize::{ NormalizedLogEntry, normalize_log_entry },
+    normalize::{ normalize_log_entry },
     trace::TracesAPI,
     types::{ SpanId, TraceId },
 };
@@ -39,9 +39,19 @@ impl GCPServiceLogs {
         let client = LoggingServiceV2::builder().build().await?; // Uses ADC by default
         let traces_api = TracesAPI::new().await?;
 
-        let internal_log_filter: String = log_filter.map_or(DEFAULT_LOG_FILTER.into(), |v|
-            [DEFAULT_LOG_FILTER, v.as_str()].join(" AND ")
-        );
+        let now = Timestamp::try_from(std::time::SystemTime::now())?;
+        let week_ago = Timestamp::clamp(now.seconds() - 7 * 24 * 60 * 60, 0);
+
+        let mut internal_log_filters: Vec<String> = vec![
+            DEFAULT_LOG_FILTER.to_string(),
+            format!("timestamp>=\"{}\"", String::from(week_ago))
+        ];
+
+        if log_filter.is_some() {
+            internal_log_filters.push(log_filter.unwrap());
+        }
+
+        let internal_log_filter = internal_log_filters.join(" AND ");
 
         Ok(Self {
             client,
@@ -83,6 +93,7 @@ impl ServiceLogs for GCPServiceLogs {
                 .set_resource_names([format!("projects/{}", self.project_id)])
                 .set_filter(&self.log_filter)
                 .set_page_size(self.page_size)
+                .set_order_by("timestamp asc")
                 .send().await;
 
             if result.is_err() {
@@ -96,9 +107,9 @@ impl ServiceLogs for GCPServiceLogs {
 
             debug!("Found {} results on page {}", response.entries.len(), page);
 
-            for e in response.entries {
-                debug!("{:?}", e);
+            let mut normalized_log_entry_unique_errors: HashMap<String, usize> = Default::default();
 
+            for e in response.entries {
                 let normalized_log_entry_result = normalize_log_entry(
                     e,
                     self.custom_path_regex.clone()
@@ -106,7 +117,12 @@ impl ServiceLogs for GCPServiceLogs {
 
                 if normalized_log_entry_result.is_err() {
                     let e = normalized_log_entry_result.unwrap_err();
-                    error!("Unable to normalize log entry: {}", e);
+                    normalized_log_entry_unique_errors
+                        .entry(e.to_string())
+                        .and_modify(|count| {
+                            *count += 1;
+                        })
+                        .or_insert(1);
                     continue;
                 }
 
@@ -116,8 +132,8 @@ impl ServiceLogs for GCPServiceLogs {
                 // protocols are added, need to update NormalizedLogEntry
                 // to handle other cases.
                 let operation = Operation::Http(
-                    normalized_log_entry.method,
-                    normalized_log_entry.path
+                    normalized_log_entry.http_request.0,
+                    normalized_log_entry.http_request.1
                 );
 
                 // Will create the service if it does not exist.
@@ -126,11 +142,24 @@ impl ServiceLogs for GCPServiceLogs {
                     operation.clone()
                 );
 
+                if normalized_log_entry.trace_id.is_none() {
+                    warn!("No trace_id was found on log entry");
+                    continue;
+                }
+
+                if normalized_log_entry.span_id.is_none() {
+                    warn!("No span_id was found on log entry");
+                    continue;
+                }
+
+                let trace_id = normalized_log_entry.trace_id.unwrap();
+                let span_id = normalized_log_entry.span_id.unwrap();
+
                 // TODO: extract this logic in its own struct.
                 trace_id_to_span_id_to_service_info
-                    .entry(normalized_log_entry.trace_id.clone())
+                    .entry(trace_id.clone())
                     .and_modify(|span_ids_to_service_info_map| {
-                        span_ids_to_service_info_map.insert(normalized_log_entry.span_id.clone(), (
+                        span_ids_to_service_info_map.insert(span_id.clone(), (
                             normalized_log_entry.service_name.clone(),
                             operation.clone(),
                         ));
@@ -138,11 +167,15 @@ impl ServiceLogs for GCPServiceLogs {
                     .or_insert(
                         HashMap::from_iter([
                             (
-                                normalized_log_entry.span_id.clone(),
+                                span_id.clone(),
                                 (normalized_log_entry.service_name, operation.clone()),
                             ),
                         ])
                     );
+            }
+
+            if normalized_log_entry_unique_errors.len() > 0 {
+                warn!("Failed to normalize log entry: {:?}", normalized_log_entry_unique_errors);
             }
 
             // Creating associations between Service Nodes. This is where the magic happens.

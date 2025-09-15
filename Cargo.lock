@@ -626,6 +626,7 @@ dependencies = [
  "common",
  "gcp_auth",
  "google-cloud-logging-v2",
+ "google-cloud-wkt",
  "logs-to-graph",
  "regex",
  "reqwest",

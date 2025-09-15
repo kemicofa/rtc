@@ -1,5 +1,6 @@
 use anyhow::{ Ok, Result, bail };
 use serde::Deserialize;
+use tracing::debug;
 
 use crate::{ creds::load_creds, types::{ ParentSpanId, SpanId, TraceId } };
 

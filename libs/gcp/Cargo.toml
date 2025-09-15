@@ -17,3 +17,4 @@ gcp_auth = "0.12"            # loads ADC and fetches access tokens
 serde_json = "1"
 logs-to-graph = { path = "../logs-to-graph" }
 common = { path = "../common" }
+google-cloud-wkt = "1.0.0"

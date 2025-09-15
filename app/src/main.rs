@@ -1,6 +1,7 @@
-use anyhow::{ Ok, Result };
+use anyhow::{ Ok, Result, bail };
 use clap::Parser;
 use common::tracing::init_tracing;
+use dotenvy::{ from_filename_override };
 
 use crate::bootstrap::build_dependencies;
 use crate::cli::{ Cli, Commands };
@@ -14,13 +15,21 @@ mod fake_service_log;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenvy::dotenv().expect("Unable to load environment variables");
+    if let Err(e) = dotenvy::dotenv() {
+        bail!("Unable to load environment variables: {}", e);
+    }
     init_tracing();
+
     let cli = Cli::parse();
 
     let config = match cli.command {
-        Commands::Ingest => Config::default(),
-        Commands::Demo => Config::new(GraphEngine::Falkor, LogEngine::Fake),
+        Commands::Ingest => { Config::default() }
+        Commands::Demo => {
+            if let Err(e) = from_filename_override(".env.demo") {
+                bail!("Failed to read .env.demo: {}", e);
+            }
+            Config::new(GraphEngine::Falkor, LogEngine::Fake)
+        }
     };
 
     let logs_to_graph = build_dependencies(config).await?;

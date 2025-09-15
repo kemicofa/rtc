@@ -1,6 +1,7 @@
 use anyhow::{ ensure, bail, Result, Ok };
 use google_cloud_logging_v2::model::LogEntry;
 use logs_to_graph::service_node_graph::{ HttpMethod, HttpPath, ServiceName };
+use tracing::debug;
 use url::Url;
 use regex::Regex;
 
@@ -13,16 +14,15 @@ pub enum ResourceType {
 
 #[derive(Debug, Clone)]
 pub struct NormalizedLogEntry {
-    pub path: HttpPath,
-    pub span_id: SpanId,
+    pub http_request: (HttpMethod, HttpPath),
+    pub span_id: Option<SpanId>,
     pub resource_type: ResourceType,
+    pub trace_id: Option<TraceId>,
     pub service_name: ServiceName,
-    pub trace_id: TraceId,
-    pub method: HttpMethod,
 }
 
 /// Normalizes a path by replacing id's and uuid's
-fn normalize_path(url_str: &str, custom_path_regex: Option<String>) -> Result<String> {
+pub fn normalize_path(url_str: &str, custom_path_regex: Option<String>) -> Result<String> {
     let url = Url::parse(url_str)?;
     let path_segments: Vec<&str> = match url.path_segments() {
         Some(segments) => segments.collect(),
@@ -74,8 +74,11 @@ pub fn normalize_log_entry(
     e: LogEntry,
     custom_path_regex: Option<String>
 ) -> Result<NormalizedLogEntry> {
-    let span_id = e.span_id;
-    ensure!(!span_id.is_empty(), "span_id is empty");
+    let span_id: Option<String> = match e.span_id.trim() {
+        "" => None,
+        v => Some(v.into()),
+    };
+
     ensure!(e.resource.is_some(), "missing resource");
     ensure!(e.http_request.is_some(), "missing http_request");
 
@@ -95,18 +98,21 @@ pub fn normalize_log_entry(
 
     let path = normalize_path(&request_url, custom_path_regex)?;
 
-    let trace_id: String = match e.trace.split("/").last() {
-        Some(id) => id.into(),
-        None => bail!("Unable to extract trace_id from trace"),
+    let trace_id: Option<String> = match e.trace.trim().split("/").last() {
+        Some(id) =>
+            match id {
+                "" => None,
+                v => Some(v.into()),
+            }
+        None => None,
     };
 
     Ok(NormalizedLogEntry {
-        path,
+        http_request: (http_request.request_method.to_uppercase(), path),
         service_name,
         span_id,
         trace_id,
         resource_type: ResourceType::CloudRunRevision,
-        method: http_request.request_method.to_uppercase(),
     })
 }
 

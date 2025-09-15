@@ -52,6 +52,9 @@ Thumbs.db
 # If you use temporary files or secrets
 .env
 .env.*     # e.g. .env.local
+!.env.sample
+!.env.demo
+
 Secrets*.toml
 
 # Node / web front-end (if you have frontend parts in workspace)
@@ -65,8 +68,4 @@ out/
 
 # Volumes persisting data from falkordb and redis
 data
-
-# Don't persist any rtc.config.*.json except rtc.config.sample.json
-rtc.config.*.json
-!rtc.config.sample.json
 # ========== End of gitignore ==========
