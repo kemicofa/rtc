@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tracing = "0.1"
+tokio = { version = "1", default-features = false, features = ["sync"] }

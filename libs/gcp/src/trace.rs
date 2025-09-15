@@ -1,21 +1,21 @@
 use anyhow::{ Ok, Result, bail };
 use serde::Deserialize;
 
-use crate::creds::load_creds;
+use crate::{ creds::load_creds, types::{ ParentSpanId, SpanId, TraceId } };
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Trace {
     pub project_id: String,
-    pub trace_id: String,
+    pub trace_id: TraceId,
     pub spans: Vec<Span>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct Span {
-    pub span_id: String,
-    pub parent_span_id: Option<String>,
+pub struct Span {
+    pub span_id: SpanId,
+    pub parent_span_id: Option<ParentSpanId>,
 }
 
 pub struct TracesAPI {
@@ -31,7 +31,7 @@ impl TracesAPI {
         })
     }
 
-    pub async fn get_trace(&self, project_id: String, trace_id: String) -> Result<Trace> {
+    pub async fn get_trace(&self, project_id: &String, trace_id: &String) -> Result<Trace> {
         let url = format!(
             "https://cloudtrace.googleapis.com/v1/projects/{}/traces/{}",
             project_id,
@@ -52,7 +52,6 @@ impl TracesAPI {
             bail!("Trace API error: {} — {}", status, body);
         }
 
-        // If you want typed structs, define them; for brevity we just pretty-print the JSON.
         let trace: Trace = resp.json::<Trace>().await?;
 
         Ok(trace)

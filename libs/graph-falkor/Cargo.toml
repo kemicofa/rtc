@@ -1,0 +1,12 @@
+[package]
+name = "graph-falkor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+falkordb = { version = "0.1.11", features = ["tokio"] }
+anyhow = "1"
+logs-to-graph = { path = "../logs-to-graph" }
+async-trait = "0.1.89"
+tokio = { version = "1.47.1", default-features = false, features = ["rt", "macros", "sync"] }
+tracing = "0.1"

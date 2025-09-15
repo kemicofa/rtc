@@ -1,7 +1,10 @@
 use anyhow::{ ensure, bail, Result, Ok };
 use google_cloud_logging_v2::model::LogEntry;
+use logs_to_graph::service_node_graph::{ HttpMethod, HttpPath, ServiceName };
 use url::Url;
 use regex::Regex;
+
+use crate::types::{ SpanId, TraceId };
 
 #[derive(Debug, Clone)]
 pub enum ResourceType {
@@ -10,12 +13,12 @@ pub enum ResourceType {
 
 #[derive(Debug, Clone)]
 pub struct NormalizedLogEntry {
-    pub path: String,
-    pub span_id: String,
+    pub path: HttpPath,
+    pub span_id: SpanId,
     pub resource_type: ResourceType,
-    pub service_name: String,
-    pub trace_id: String,
-    pub method: String,
+    pub service_name: ServiceName,
+    pub trace_id: TraceId,
+    pub method: HttpMethod,
 }
 
 /// Normalizes a path by replacing id's and uuid's
