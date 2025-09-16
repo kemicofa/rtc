@@ -35,13 +35,16 @@ impl GraphFalkor {
     }
 
     async fn upsert_service_node(&self, name: String) -> Result<()> {
-        info!("{}", name);
         let params: HashMap<String, String> = HashMap::from_iter([
             ("name".into(), stringy!(name.clone())),
             ("id".into(), stringy!(name.clone())),
         ]);
         let mut graph = self.client.select_graph(self.graph.clone());
-        graph.query(UPSERT_SERVICE_NODE_CYPHER).with_params(&params).execute().await?;
+        let res = graph.query(UPSERT_SERVICE_NODE_CYPHER).with_params(&params).execute().await?;
+
+        if res.get_nodes_created().is_some_and(|count| count > 0) {
+            info!("Created new service node: {}", name);
+        }
         Ok(())
     }
 
@@ -51,7 +54,6 @@ impl GraphFalkor {
         service_operation_id: String,
         operation: Operation
     ) -> Result<()> {
-        info!("{}", service_operation_id);
         let operation_label = operation.get_label();
         let operation_params: HashMap<String, String> = HashMap::from_iter([
             ("label".into(), stringy!(operation_label.clone())),
@@ -59,7 +61,14 @@ impl GraphFalkor {
         ]);
 
         let mut graph = self.client.select_graph(self.graph.clone());
-        graph.query(UPSERT_OPERATION_CYPHER).with_params(&operation_params).execute().await?;
+        let upsert_operation_res = graph
+            .query(UPSERT_OPERATION_CYPHER)
+            .with_params(&operation_params)
+            .execute().await?;
+
+        if upsert_operation_res.get_nodes_created().is_some_and(|count| count > 0) {
+            info!("Created new operation node: {:?}", operation);
+        }
 
         let service_node_to_operation_relation_params: HashMap<String, String> = HashMap::from_iter(
             [
@@ -68,10 +77,14 @@ impl GraphFalkor {
             ]
         );
 
-        graph
+        let upsert_service_node_to_operation_res = graph
             .query(UPSERT_SERVICE_NODE_TO_OPERATION_CYPHER)
             .with_params(&service_node_to_operation_relation_params)
             .execute().await?;
+
+        if upsert_service_node_to_operation_res.get_nodes_created().is_some_and(|count| count > 0) {
+            info!("Created new service to operation node: {} -> {:?}", name, operation);
+        }
 
         Ok(())
     }
@@ -87,10 +100,18 @@ impl GraphFalkor {
         ]);
 
         let mut graph = self.client.select_graph(self.graph.clone());
-        graph
+        let res = graph
             .query(UPSERT_SERVICE_TO_SERVICE_OPERATION_RELATION)
             .with_params(&params)
             .execute().await?;
+
+        if res.get_nodes_created().is_some_and(|count| count > 0) {
+            info!(
+                "Created new service to service operation: {} -> {}",
+                from_service_name,
+                to_service_operation_id
+            );
+        }
 
         Ok(())
     }
@@ -99,7 +120,6 @@ impl GraphFalkor {
         let mut service_to_service_relations: Vec<(ServiceName, ServiceOperationId)> = vec![];
         debug!("Processing service node graph");
         for (service_name, service_node) in service_node_graph.services.iter() {
-            debug!("Upserting service");
             let upsert_service_node_res = self.upsert_service_node(service_name.clone()).await;
 
             if upsert_service_node_res.is_err() {
@@ -109,7 +129,6 @@ impl GraphFalkor {
             }
 
             for (service_operation_id, operation) in service_node.operations.iter() {
-                debug!("Upserting service operation");
                 let upsert_service_node_operation_result = self.upsert_service_node_operation(
                     service_name.clone(),
                     service_operation_id.clone(),
@@ -134,7 +153,6 @@ impl GraphFalkor {
         }
 
         for (from_service_name, to_service_operation_id) in service_to_service_relations {
-            debug!("Upserting service invocation of service's operation");
             let upsert_service_to_service_operation_relation_res =
                 self.upsert_service_to_service_operation_relation(
                     from_service_name,
