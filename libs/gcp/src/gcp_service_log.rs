@@ -75,6 +75,8 @@ impl ServiceLogs for GCPServiceLogs {
             HashMap<SpanId, (ServiceName, Operation)>
         > = HashMap::new();
 
+        let mut page_token = String::new();
+
         let mut page: i32 = 0;
         loop {
             page += 1;
@@ -94,6 +96,7 @@ impl ServiceLogs for GCPServiceLogs {
                 .set_filter(&self.log_filter)
                 .set_page_size(self.page_size)
                 .set_order_by("timestamp asc")
+                .set_page_token(&page_token)
                 .send().await;
 
             if result.is_err() {
@@ -104,6 +107,8 @@ impl ServiceLogs for GCPServiceLogs {
             }
 
             let response = result.unwrap();
+
+            page_token = response.next_page_token.clone();
 
             debug!("Found {} results on page {}", response.entries.len(), page);
 
@@ -255,7 +260,7 @@ impl ServiceLogs for GCPServiceLogs {
                 warn!("Failed to send the updated ServiceNodeGraph. Will try again next iteration. {}", e);
             }
 
-            if response.next_page_token.is_empty() {
+            if page_token.is_empty() {
                 debug!("Stopping because next page token is empty");
                 break;
             }
