@@ -198,4 +198,25 @@ mod test {
             "{\"services\":{\"users-service\":{\"name\":\"users-service\",\"operations\":{},\"invokes\":{\"books-service\":[\"3dff280d8c0d7beed2f82e8f2ffc2bcf65608fd62579ba9047137f9ec884e984\"]}}}}".to_string()
         );
     }
+
+    #[test]
+    fn should_be_able_to_add_multiple_operations_to_a_service() {
+        let mut graph = ServiceNodeGraph::default();
+        let service_name: String = "users-service".into();
+        graph.add_service(service_name.clone());
+        graph.add_operation_to_service(
+            service_name.clone(),
+            Operation::Http("post".into(), "/users".into())
+        );
+        graph.add_operation_to_service(
+            service_name,
+            Operation::Http("get".into(), "/users/{user_id}".into())
+        );
+        let json_string = serde_json::to_string(&graph).expect("Failed to serialize graph");
+
+        assert_eq!(
+            json_string,
+            "{\"services\":{\"users-service\":{\"name\":\"users-service\",\"operations\":{\"13e8e5c0b41a85cfcf1f7b34ab159aa29be20f6c7631fcaff120d07c923322aa\":{\"Http\":[\"post\",\"/users\"]},\"8c4475ac37e66057f4a7304fd76a46fe7f0313b7626b6123cae82f024c728fba\":{\"Http\":[\"get\",\"/users/{user_id}\"]}},\"invokes\":{}}}}".to_string()
+        );
+    }
 }
