@@ -1,15 +1,27 @@
+# Optional for now.
 schema_version = 1
 
 [falkor]
+# Required
 database_url = "redis://127.0.0.1:6379"
+# Optional: defaults to 1
 max_pool = 1
+# Required
 graph_name = "rtc"
 
 [gcp]
+# Required
 project_id= "my-project-id"
+# Optional: defaults to 100
 page_size = 1000
+# Optional: defaults to 100
 max_pages = 1000
+
+# Optional: further filters GCP logs. 
+# There is already a default filter, add more depending on your use-case.
 custom_log_filter = ""
 
+# Optional
 [http.request_paths]
+# Regex patterns
 custom_normalize_patterns = []
