@@ -1,7 +1,7 @@
 # Optional for now.
 schema_version = 1
 
-[falkor]
+[graph_engine.falkor]
 # Required
 database_url = "redis://127.0.0.1:6379"
 # Optional: defaults to 1
@@ -9,7 +9,7 @@ max_pool = 1
 # Required
 graph_name = "rtc"
 
-[gcp]
+[log_engine.gcp]
 # Required
 project_id= "my-project-id"
 # Optional: defaults to 100

@@ -21,7 +21,7 @@ pub struct HttpConfig {
 
 #[derive(Debug, Deserialize)]
 pub enum LogEngine {
-    GCP {
+    #[serde(rename = "gcp")] GCP {
         project_id: String,
         page_size: Option<i32>,
         max_pages: Option<i32>,
@@ -33,7 +33,7 @@ pub enum LogEngine {
 
 #[derive(Debug, Deserialize)]
 pub enum GraphEngine {
-    Falkor {
+    #[serde(rename = "falkor")] Falkor {
         database_url: String,
         max_pool: Option<NonZeroU8>,
         graph_name: String,
