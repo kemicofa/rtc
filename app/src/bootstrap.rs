@@ -1,6 +1,7 @@
 use std::num::NonZeroU8;
 
 use common::{ bmarc, types::BMArc };
+use datadog::DatadogServiceLog;
 use gcp::gcp_service_log::GCPServiceLogs;
 use graph_falkor::GraphFalkor;
 use anyhow::{ Ok, Result };
@@ -32,6 +33,10 @@ pub async fn build_dependencies(config: Config) -> Result<LogsToGraph> {
                 custom_path_normalize_patterns
             ).await?;
 
+            bmarc!(service_logs)
+        }
+        LogEngine::Datadog { api_key } => {
+            let service_logs = DatadogServiceLog::new(api_key)?;
             bmarc!(service_logs)
         }
         LogEngine::Fake => {

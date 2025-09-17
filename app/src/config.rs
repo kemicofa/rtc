@@ -28,6 +28,10 @@ pub enum LogEngine {
         #[serde(deserialize_with = "empty_string_as_none")]
         custom_log_filter: Option<String>,
     },
+    #[serde(rename = "datadog")] Datadog {
+        #[serde(deserialize_with = "empty_string_as_none")]
+        api_key: Option<String>,
+    },
     Fake,
 }
 
