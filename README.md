@@ -49,5 +49,6 @@ cargo build
 
 ```sh
 cargo run -- help
-cargo run -- ingest
+RUST_LOG=debug cargo run -- run
+RUST_LOG=debug cargo run -- demo
 ```
