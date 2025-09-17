@@ -1,34 +1,35 @@
+use std::num::NonZeroU8;
+
 use common::{ bmarc, types::BMArc };
 use gcp::gcp_service_log::GCPServiceLogs;
 use graph_falkor::GraphFalkor;
 use anyhow::{ Ok, Result };
 use logs_to_graph::{ LogsToGraph, service_graph::ServiceGraph, service_logs::ServiceLogs };
 
-use crate::{
-    config::{ Config, GraphEngine, LogEngine },
-    env::{ load_falkor_env, load_gcp_log_env },
-    fake_service_log::FakeServiceLog,
-};
+use crate::{ config::{ Config, GraphEngine, LogEngine }, fake_service_log::FakeServiceLog };
 
 pub async fn build_dependencies(config: Config) -> Result<LogsToGraph> {
     let service_graph: BMArc<dyn ServiceGraph> = match config.graph_engine {
-        GraphEngine::Falkor => {
-            let env = load_falkor_env();
-            let graph = GraphFalkor::new(env.database_url, env.graph_name, env.pool).await?;
+        GraphEngine::Falkor { max_pool, database_url, graph_name } => {
+            let revised_max_pool = max_pool.unwrap_or(NonZeroU8::new(1).unwrap());
+            let graph = GraphFalkor::new(database_url, graph_name, revised_max_pool).await?;
             bmarc!(graph)
         }
-        GraphEngine::EmitOnly => todo!(),
     };
 
     let service_logs: BMArc<dyn ServiceLogs> = match config.log_engine {
-        LogEngine::GCP => {
-            let env = load_gcp_log_env();
+        LogEngine::GCP { project_id, page_size, max_pages, custom_log_filter } => {
+            let custom_path_normalize_patterns = config.http_config
+                .map(|http| http.request_paths.custom_normalize_patterns)
+                .or(Some(vec![]))
+                .unwrap();
+
             let service_logs = GCPServiceLogs::new(
-                env.project_id,
-                env.page_size,
-                env.max_pages,
-                env.log_filter,
-                env.custom_path_regex
+                project_id,
+                page_size.unwrap_or(100),
+                max_pages.unwrap_or(100),
+                custom_log_filter,
+                custom_path_normalize_patterns
             ).await?;
 
             bmarc!(service_logs)

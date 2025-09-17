@@ -37,7 +37,7 @@ flowchart TD
 ### Requirements
 
 1. docker-compose or podman
-2. `.env` or environment variables properly set (see `.env.sample`)
+2. `rtc.toml` to configure (see `rtc.example.toml`)
 
 ### Building
 

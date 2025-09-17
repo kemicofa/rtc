@@ -5,12 +5,13 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-dotenvy = "0.15.7"
 gcp = { path = "../libs/gcp" }
 logs-to-graph = { path = "../libs/logs-to-graph" }
 common = { path = "../libs/common" }
 tracing = "0.1"
 anyhow = "1"
-clap = { version = "4.5.47", features = ["derive"] }
+clap = { version = "4.5.47", features = ["derive", "env"] }
 graph-falkor = { path = "../libs/graph-falkor" }
 async-trait = "0.1.89"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"

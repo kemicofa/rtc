@@ -1,0 +1,5 @@
+schema_version = 1
+
+[graph_engine.Falkor]
+database_url = "redis://127.0.0.1:6379"
+graph_name = "rtc-demo"

@@ -1,0 +1,15 @@
+schema_version = 1
+
+[falkor]
+database_url = "redis://127.0.0.1:6379"
+max_pool = 1
+graph_name = "rtc"
+
+[gcp]
+project_id= "my-project-id"
+page_size = 1000
+max_pages = 1000
+custom_log_filter = ""
+
+[http.request_paths]
+custom_normalize_patterns = []

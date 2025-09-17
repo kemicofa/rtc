@@ -8,14 +8,15 @@ use logs_to_graph::{
     service_logs::ServiceLogs,
     service_node_graph::{ Operation, ServiceName, ServiceNodeGraph },
 };
+use regex::Regex;
 use tokio::{ sync::{ mpsc::{ Sender } }, time::{ Duration, sleep } };
 use tracing::{ debug, error, info, warn };
 
 use crate::{
     consts::DEFAULT_LOG_FILTER,
-    normalize::{ normalize_log_entry },
+    normalize::{ get_default_path_normalize_regexes, normalize_log_entry },
     trace::TracesAPI,
-    types::{ SpanId, TraceId },
+    types::{ ProjectId, SpanId, TraceId },
 };
 
 pub struct GCPServiceLogs {
@@ -24,7 +25,7 @@ pub struct GCPServiceLogs {
     client: LoggingServiceV2,
     page_size: i32,
     max_pages: i32,
-    custom_path_regex: Option<String>,
+    path_normalize_regexes: Vec<(String, Vec<Regex>)>,
     traces_api: TracesAPI,
 }
 
@@ -34,8 +35,25 @@ impl GCPServiceLogs {
         page_size: i32,
         max_pages: i32,
         log_filter: Option<String>,
-        custom_path_regex: Option<String>
+        custom_path_normalize_patterns: Vec<String>
     ) -> Result<Self> {
+        if project_id.is_empty() {
+            bail!("Expected a non empty project_id");
+        }
+
+        let mut path_normalize_regexes: Vec<
+            (String, Vec<Regex>)
+        > = get_default_path_normalize_regexes();
+
+        if custom_path_normalize_patterns.len() > 0 {
+            let custom_path_regexes = custom_path_normalize_patterns
+                .iter()
+                .map(|pattern| Regex::new(pattern).unwrap())
+                .collect();
+
+            path_normalize_regexes.push(("custom_id".into(), custom_path_regexes));
+        }
+
         let client = LoggingServiceV2::builder().build().await?; // Uses ADC by default
         let traces_api = TracesAPI::new().await?;
 
@@ -59,7 +77,7 @@ impl GCPServiceLogs {
             log_filter: internal_log_filter,
             page_size,
             max_pages,
-            custom_path_regex,
+            path_normalize_regexes,
             traces_api,
         })
     }
@@ -74,6 +92,8 @@ impl ServiceLogs for GCPServiceLogs {
             TraceId,
             HashMap<SpanId, (ServiceName, Operation)>
         > = HashMap::new();
+
+        let project = format!("projects/{}", self.project_id);
 
         let mut page_token = String::new();
 
@@ -92,7 +112,7 @@ impl ServiceLogs for GCPServiceLogs {
             // If so then will need to move this section (up to the send()) before the loop.
             let result = self.client
                 .list_log_entries()
-                .set_resource_names([format!("projects/{}", self.project_id)])
+                .set_resource_names([project.clone()])
                 .set_filter(&self.log_filter)
                 .set_page_size(self.page_size)
                 .set_order_by("timestamp asc")
@@ -100,10 +120,13 @@ impl ServiceLogs for GCPServiceLogs {
                 .send().await;
 
             if result.is_err() {
+                let e = result.unwrap_err();
                 // TODO: probably shouldn't bail here and just log a warning
                 // sleep for 10 seconds and hope and pray the connection works
                 // next round.
-                bail!("Failed to fetch log entries: {}", result.unwrap_err());
+
+                // TODO: we don't actually see the log error.
+                bail!("Failed to fetch log entries: {}", e);
             }
 
             let response = result.unwrap();
@@ -117,7 +140,7 @@ impl ServiceLogs for GCPServiceLogs {
             for e in response.entries {
                 let normalized_log_entry_result = normalize_log_entry(
                     e,
-                    self.custom_path_regex.clone()
+                    self.path_normalize_regexes.clone()
                 );
 
                 if normalized_log_entry_result.is_err() {

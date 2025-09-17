@@ -25,11 +25,11 @@ pub struct GraphFalkor {
 }
 
 impl GraphFalkor {
-    pub async fn new(url: String, graph: String, pool: NonZeroU8) -> Result<Self> {
+    pub async fn new(url: String, graph: String, max_pool: NonZeroU8) -> Result<Self> {
         let info: FalkorConnectionInfo = url.try_into()?;
         let client = FalkorClientBuilder::new_async()
             .with_connection_info(info)
-            .with_num_connections(pool) // small connection pool for concurrency
+            .with_num_connections(max_pool) // small connection pool for concurrency
             .build().await?;
         Ok(Self { client, graph: graph.to_string() })
     }

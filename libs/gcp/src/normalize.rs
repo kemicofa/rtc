@@ -1,11 +1,10 @@
 use anyhow::{ ensure, bail, Result, Ok };
 use google_cloud_logging_v2::model::LogEntry;
 use logs_to_graph::service_node_graph::{ HttpMethod, HttpPath, ServiceName };
-use tracing::debug;
 use url::Url;
 use regex::Regex;
 
-use crate::types::{ SpanId, TraceId };
+use crate::{ consts::PATH_NORMALIZE_PATTERNS, types::{ ProjectId, SpanId, TraceId } };
 
 #[derive(Debug, Clone)]
 pub enum ResourceType {
@@ -22,44 +21,39 @@ pub struct NormalizedLogEntry {
 }
 
 /// Normalizes a path by replacing id's and uuid's
-pub fn normalize_path(url_str: &str, custom_path_regex: Option<String>) -> Result<String> {
+pub fn normalize_path(
+    url_str: &str,
+    path_normalize_regexes: Vec<(String, Vec<Regex>)>
+) -> Result<String> {
     let url = Url::parse(url_str)?;
     let path_segments: Vec<&str> = match url.path_segments() {
         Some(segments) => segments.collect(),
         None => bail!("Cannot extract segments from URL path"),
     };
 
-    let mut regexes: Vec<(&str, Regex)> = vec![
-        ("id", Regex::new(r"^\d+$")?),
-        (
-            "uuid",
-            Regex::new(
-                r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
-            )?,
-        )
-    ];
-
-    if custom_path_regex.is_some() {
-        regexes.push(("custom_id", Regex::new(custom_path_regex.unwrap().as_str())?));
-    }
-
     let mut normalized_segments = Vec::new();
     let mut segment_iter = path_segments.iter().peekable();
 
     while let Some(segment) = segment_iter.next() {
         let mut matched = false;
-        for (r#type, regex) in regexes.clone() {
-            if !regex.is_match(&segment) {
-                continue;
+        for (r#type, regexes) in path_normalize_regexes.clone() {
+            for regex in regexes {
+                if !regex.is_match(&segment) {
+                    continue;
+                }
+
+                if let Some(prev_segment) = normalized_segments.last() {
+                    normalized_segments.push(format!("{{{}_{}}}", prev_segment, r#type));
+                } else {
+                    normalized_segments.push(format!("{{{}}}", r#type).to_string());
+                }
+                matched = true;
+                break;
             }
 
-            if let Some(prev_segment) = normalized_segments.last() {
-                normalized_segments.push(format!("{{{}_{}}}", prev_segment, r#type));
-            } else {
-                normalized_segments.push(format!("{{{}}}", r#type).to_string());
+            if matched {
+                break;
             }
-
-            matched = true;
         }
 
         if !matched {
@@ -72,7 +66,7 @@ pub fn normalize_path(url_str: &str, custom_path_regex: Option<String>) -> Resul
 
 pub fn normalize_log_entry(
     e: LogEntry,
-    custom_path_regex: Option<String>
+    path_normalize_regexes: Vec<(String, Vec<Regex>)>
 ) -> Result<NormalizedLogEntry> {
     let span_id: Option<String> = match e.span_id.trim() {
         "" => None,
@@ -96,7 +90,7 @@ pub fn normalize_log_entry(
         None => bail!("Resource of type 'cloud_run_revision' did not have a service_name"),
     };
 
-    let path = normalize_path(&request_url, custom_path_regex)?;
+    let path = normalize_path(&request_url, path_normalize_regexes)?;
 
     let trace_id: Option<String> = match e.trace.trim().split("/").last() {
         Some(id) =>
@@ -116,15 +110,26 @@ pub fn normalize_log_entry(
     })
 }
 
+pub fn get_default_path_normalize_regexes() -> Vec<(String, Vec<Regex>)> {
+    let path_normalize_regexes: Vec<(String, Vec<Regex>)> = PATH_NORMALIZE_PATTERNS.iter()
+        .map(|(key, value)| { (key.to_string(), vec![Regex::new(value).unwrap()]) })
+        .collect();
+
+    path_normalize_regexes
+}
+
 #[cfg(test)]
 mod test {
-    use crate::normalize::normalize_path;
+    use regex::Regex;
+
+    use crate::{ normalize::{ get_default_path_normalize_regexes, normalize_path } };
 
     #[test]
     fn should_replace_ids() {
         let url = "https://test.com/users/12345/books/12345";
         let expect = "/users/{users_id}/books/{books_id}".to_string();
-        let res = normalize_path(url, None);
+        let path_normalize_regexes = get_default_path_normalize_regexes();
+        let res = normalize_path(url, path_normalize_regexes);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), expect);
     }
@@ -134,7 +139,8 @@ mod test {
         let url = "https://test.com/users/12345/12345/books/12345/12345";
         let expect =
             "/users/{users_id}/{{users_id}_id}/books/{books_id}/{{books_id}_id}".to_string();
-        let res = normalize_path(url, None);
+        let path_normalize_regexes = get_default_path_normalize_regexes();
+        let res = normalize_path(url, path_normalize_regexes);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), expect);
     }
@@ -143,7 +149,8 @@ mod test {
     fn should_replace_uuids() {
         let url = "https://test.com/users/91366bf0-4c97-4832-af68-452c51ca38eb/books/12345";
         let expect = "/users/{users_uuid}/books/{books_id}".to_string();
-        let res = normalize_path(url, None);
+        let path_normalize_regexes = get_default_path_normalize_regexes();
+        let res = normalize_path(url, path_normalize_regexes);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), expect);
     }
@@ -153,7 +160,9 @@ mod test {
         let url =
             "https://test.com/users/91366bf0-4c97-4832-af68-452c51ca38eb/books/12345/car/prefix-12345";
         let expect = "/users/{users_uuid}/books/{books_id}/car/{car_custom_id}".to_string();
-        let res = normalize_path(url, Some("^prefix-\\d+$".into()));
+        let mut path_normalize_regexes = get_default_path_normalize_regexes();
+        path_normalize_regexes.push(("custom".into(), vec![Regex::new("prefix-\\d+").unwrap()]));
+        let res = normalize_path(url, path_normalize_regexes);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), expect);
     }

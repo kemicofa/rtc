@@ -68,4 +68,10 @@ out/
 
 # Volumes persisting data from falkordb and redis
 data
+
+# RTC JSON config
+rtc.*.toml
+rtc.toml
+!rtc.example.toml
+!rtc.demo.toml
 # ========== End of gitignore ==========
