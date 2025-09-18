@@ -27,6 +27,8 @@ custom_log_filter = ""
 # Optional
 # Note: recommended to set env variables DD_API_KEY instead
 api_key = ""
+# Required
+site = "datadoghq.eu"
 
 # Optional
 [http.request_paths]

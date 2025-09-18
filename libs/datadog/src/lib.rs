@@ -2,29 +2,45 @@ use anyhow::{ Ok, Result, bail };
 use async_trait::async_trait;
 use datadog_api_client::{
     datadog::{ APIKey, Configuration },
-    datadogV1::{ api_logs::LogsAPI, model::{ LogsListRequest, LogsListRequestTime } },
+    datadogV1::{
+        api_authentication::AuthenticationAPI,
+        api_logs::LogsAPI,
+        model::{ LogsListRequest, LogsListRequestTime },
+    },
 };
 use logs_to_graph::{ service_logs::ServiceLogs, service_node_graph::ServiceNodeGraph };
 use tokio::sync::mpsc::Sender;
-use tracing::debug;
+use tracing::{ debug, warn };
 
 pub struct DatadogServiceLog {
-    cfg: Configuration,
+    logs_api: LogsAPI,
 }
 
 impl DatadogServiceLog {
-    pub fn new(api_key: Option<String>) -> Result<Self> {
+    pub async fn new(site: String, api_key: Option<String>) -> Result<Self> {
         let mut cfg = Configuration::new();
 
-        // if let Some(api_key) = api_key {
-        //     cfg.set_auth_key("apiKeyAuth", APIKey {
-        //         key: api_key,
-        //         prefix: "".to_owned(),
-        //     });
-        // }
+        cfg.server_index = 0;
+        cfg.server_variables.insert("site".into(), site);
+
+        if let Some(api_key) = api_key {
+            warn!("Recommended to pass the api key via the DD_API_KEY env");
+            cfg.set_auth_key("apiKeyAuth", APIKey {
+                key: api_key,
+                prefix: "".to_owned(),
+            });
+        }
+
+        let api = AuthenticationAPI::with_config(cfg.clone());
+
+        let resp = api.validate().await?;
+
+        debug!("{:?}", resp);
+
+        let logs_api = LogsAPI::with_config(cfg);
 
         Ok(Self {
-            cfg,
+            logs_api,
         })
     }
 }
@@ -36,10 +52,9 @@ impl ServiceLogs for DatadogServiceLog {
         let to_now = chrono::Utc::now();
 
         let req = LogsListRequest::new(LogsListRequestTime::new(from_one_week_ago, to_now));
-        let api = LogsAPI::with_config(self.cfg.clone());
 
         debug!("GETTING LOGS");
-        match api.list_logs(req).await {
+        match self.logs_api.list_logs(req).await {
             Result::Ok(response) => {
                 if let Some(data) = response.logs {
                     debug!("LOGS FOUND BABY: {:?}", data);

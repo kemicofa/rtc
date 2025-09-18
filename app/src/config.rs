@@ -31,6 +31,7 @@ pub enum LogEngine {
     #[serde(rename = "datadog")] Datadog {
         #[serde(deserialize_with = "empty_string_as_none")]
         api_key: Option<String>,
+        site: String,
     },
     Fake,
 }
