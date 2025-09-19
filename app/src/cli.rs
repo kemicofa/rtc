@@ -1,9 +1,8 @@
 use clap::{ Parser, Subcommand };
 
-/// A tiny demo CLI with multiple commands (and a nested group).
 #[derive(Debug, Parser)]
 #[command(name = "rtc", version, about = "Real Time Cartographer")]
-#[command(propagate_version = true)] // lets subcommands inherit --version
+#[command(propagate_version = true)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,

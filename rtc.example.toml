@@ -9,6 +9,8 @@ max_pool = 1
 # Required
 graph_name = "rtc"
 
+# Note: ensure you're already authenticated locally
+# Underlying GCP lib will attempt to load credentials automatically
 [log_engine.gcp]
 # Required
 project_id= "my-project-id"
@@ -20,6 +22,16 @@ max_pages = 1000
 # Optional: further filters GCP logs. 
 # There is already a default filter, add more depending on your use-case.
 custom_log_filter = ""
+
+[log_engine.datadog]
+# Optional
+# Note: recommended to set env variables DD_API_KEY instead
+api_key = ""
+# Optional
+# Note: recommended to set env variables DD_APP_KEY instead
+app_key = ""
+# Required
+site = "datadoghq.eu"
 
 # Optional
 [http.request_paths]
