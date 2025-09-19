@@ -25,12 +25,14 @@ pub enum LogEngine {
         project_id: String,
         page_size: Option<i32>,
         max_pages: Option<i32>,
-        #[serde(deserialize_with = "empty_string_as_none")]
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         custom_log_filter: Option<String>,
     },
     #[serde(rename = "datadog")] Datadog {
-        #[serde(deserialize_with = "empty_string_as_none")]
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         api_key: Option<String>,
+        #[serde(default, deserialize_with = "empty_string_as_none")]
+        app_key: Option<String>,
         site: String,
     },
     Fake,

@@ -27,6 +27,9 @@ custom_log_filter = ""
 # Optional
 # Note: recommended to set env variables DD_API_KEY instead
 api_key = ""
+# Optional
+# Note: recommended to set env variables DD_APP_KEY instead
+app_key = ""
 # Required
 site = "datadoghq.eu"
 

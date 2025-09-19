@@ -35,8 +35,8 @@ pub async fn build_dependencies(config: Config) -> Result<LogsToGraph> {
 
             bmarc!(service_logs)
         }
-        LogEngine::Datadog { api_key, site } => {
-            let service_logs = DatadogServiceLog::new(site, api_key).await?;
+        LogEngine::Datadog { api_key, site, app_key } => {
+            let service_logs = DatadogServiceLog::new(site, api_key, app_key).await?;
             bmarc!(service_logs)
         }
         LogEngine::Fake => {
