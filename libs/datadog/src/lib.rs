@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{ Ok, Result, bail };
 use async_trait::async_trait;
 use datadog_api_client::{
@@ -5,10 +7,11 @@ use datadog_api_client::{
     datadogV1::{
         api_authentication::AuthenticationAPI,
         api_logs::LogsAPI,
-        model::{ LogsListRequest, LogsListRequestTime },
+        model::{ LogsListRequest, LogsListRequestTime, LogsSort },
     },
 };
 use logs_to_graph::{ service_logs::ServiceLogs, service_node_graph::ServiceNodeGraph };
+use serde_json::to_string_pretty;
 use tokio::sync::mpsc::Sender;
 use tracing::{ debug, error, warn };
 
@@ -62,24 +65,47 @@ impl ServiceLogs for DatadogServiceLog {
     async fn run(&self, sender: Sender<ServiceNodeGraph>) -> Result<()> {
         let from_one_week_ago = chrono::Utc::now() - chrono::Duration::weeks(1);
         let to_now = chrono::Utc::now();
+        let mut next_page_token: Option<String> = None;
 
-        let req = LogsListRequest::new(LogsListRequestTime::new(from_one_week_ago, to_now));
+        loop {
+            tokio::time::sleep(Duration::from_secs(2)).await;
 
-        debug!("GETTING LOGS");
-        match self.logs_api.list_logs(req).await {
-            Result::Ok(response) => {
-                if let Some(data) = response.logs {
-                    debug!("LOGS FOUND BABY: {:?}", data);
-                } else {
-                    debug!("No longs found rip");
-                }
+            let mut req = LogsListRequest::new(LogsListRequestTime::new(from_one_week_ago, to_now))
+                .limit(100)
+                .sort(LogsSort::TIME_ASCENDING);
+
+            if next_page_token.is_some() {
+                req = req.start_at(next_page_token.clone().unwrap());
             }
-            Err(e) => {
-                debug!("{}", e);
-                bail!("Didn't work {}", e);
+
+            let res = self.logs_api.list_logs(req).await;
+
+            if res.is_err() {
+                bail!("[Datadog][list_logs] Failed fetching logs: {}", res.unwrap_err());
+            }
+
+            let logs_list_response = res.unwrap();
+
+            // Why do they wrap the next log id in a double option. FML.
+            next_page_token = logs_list_response.next_log_id.unwrap_or(None);
+
+            if logs_list_response.logs.is_none() {
+                debug!("[Datadog][list_logs] No logs were found for page");
+                continue;
+            }
+
+            let logs = logs_list_response.logs.unwrap();
+
+            for log in logs {
+                // let service_name = log.content.map(|content| { content.service }).unwrap_or(None);
+                debug!("{}", to_string_pretty(&log).unwrap());
+            }
+
+            if next_page_token.is_none() {
+                break;
             }
         }
-        debug!("DONE GETTING LOGS");
+
         Ok(())
     }
 }
