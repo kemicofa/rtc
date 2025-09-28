@@ -31,12 +31,8 @@ impl TracesAPI {
         })
     }
 
-    pub async fn get_trace(&self, project_id: &String, trace_id: &String) -> Result<Trace> {
-        let url = format!(
-            "https://cloudtrace.googleapis.com/v1/projects/{}/traces/{}",
-            project_id,
-            trace_id
-        );
+    pub async fn get_trace(&self, trace: &String) -> Result<Trace> {
+        let url = format!("https://cloudtrace.googleapis.com/v1/{}", trace);
 
         let bearer = format!("Bearer {}", self.token);
         let client = reqwest::Client::new();

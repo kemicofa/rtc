@@ -24,7 +24,6 @@ pub enum LogEngine {
     #[serde(rename = "gcp")] GCP {
         project_id: String,
         page_size: Option<i32>,
-        max_pages: Option<i32>,
         #[serde(deserialize_with = "empty_string_as_none")]
         custom_log_filter: Option<String>,
     },

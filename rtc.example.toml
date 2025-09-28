@@ -14,8 +14,7 @@ graph_name = "rtc"
 project_id= "my-project-id"
 # Optional: defaults to 100
 page_size = 1000
-# Optional: defaults to 100
-max_pages = 1000
+
 
 # Optional: further filters GCP logs. 
 # There is already a default filter, add more depending on your use-case.

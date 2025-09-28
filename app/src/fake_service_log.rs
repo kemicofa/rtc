@@ -41,7 +41,7 @@ impl ServiceLogs for FakeServiceLog {
                         operations: HashMap::from_iter([
                             (
                                 "graphql-service_http_post_/".into(),
-                                Operation::Http("POST".into(), "/".into()),
+                                Operation::Http { method: "POST".into(), path: "/".into() },
                             ),
                         ]),
                         invokes: HashMap::from_iter([
@@ -78,11 +78,14 @@ impl ServiceLogs for FakeServiceLog {
                         operations: HashMap::from_iter([
                             (
                                 "users-service_http_post_/users".into(),
-                                Operation::Http("POST".into(), "/users".into()),
+                                Operation::Http { method: "POST".into(), path: "/users".into() },
                             ),
                             (
                                 "users-service_http_get_/users/{users_id}".into(),
-                                Operation::Http("GET".into(), "/users/{users_id}".into()),
+                                Operation::Http {
+                                    method: "GET".into(),
+                                    path: "/users/{users_id}".into(),
+                                },
                             ),
                         ]),
                         invokes: HashMap::from_iter([]),
@@ -95,22 +98,28 @@ impl ServiceLogs for FakeServiceLog {
                         operations: HashMap::from_iter([
                             (
                                 "books-service_http_post_/books".into(),
-                                Operation::Http("POST".into(), "/books".into()),
+                                Operation::Http { method: "POST".into(), path: "/books".into() },
                             ),
                             (
                                 "books-service_http_get_/books/{books_id}".into(),
-                                Operation::Http("GET".into(), "/books/{books_id}".into()),
+                                Operation::Http {
+                                    method: "GET".into(),
+                                    path: "/books/{books_id}".into(),
+                                },
                             ),
                             (
                                 "books-service_http_post_/books/{books_id}/chapters".into(),
-                                Operation::Http("POST".into(), "/books/{books_id}/chapters".into()),
+                                Operation::Http {
+                                    method: "POST".into(),
+                                    path: "/books/{books_id}/chapters".into(),
+                                },
                             ),
                             (
                                 "books-service_http_get_/books/{books_id}/chapters/{chapter_id}".into(),
-                                Operation::Http(
-                                    "GET".into(),
-                                    "/books/{books_id}/chapters/{chapters_id}".into()
-                                ),
+                                Operation::Http {
+                                    method: "GET".into(),
+                                    path: "/books/{books_id}/chapters/{chapters_id}".into(),
+                                },
                             ),
                         ]),
                         invokes: HashMap::from_iter([]),
@@ -123,11 +132,11 @@ impl ServiceLogs for FakeServiceLog {
                         operations: HashMap::from_iter([
                             (
                                 "auth-service_http_post_/login".into(),
-                                Operation::Http("POST".into(), "/login".into()),
+                                Operation::Http { method: "POST".into(), path: "/login".into() },
                             ),
                             (
                                 "auth-service_http_post_/logout".into(),
-                                Operation::Http("POST".into(), "/logout".into()),
+                                Operation::Http { method: "POST".into(), path: "/logout".into() },
                             ),
                         ]),
                         invokes: HashMap::from_iter([

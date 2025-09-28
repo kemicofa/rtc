@@ -4,7 +4,6 @@ use anyhow::{ Ok, Result };
 use common::types::BMArc;
 use service_logs::ServiceLogs;
 use tokio::{ sync::{ mpsc }, task };
-use tracing::error;
 
 use crate::{ service_graph::ServiceGraph, service_node_graph::ServiceNodeGraph };
 

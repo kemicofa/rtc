@@ -13,20 +13,23 @@ pub type ServiceOperationId = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Operation {
-    Http(HttpMethod, HttpPath),
+    Http {
+        method: HttpMethod,
+        path: HttpPath,
+    },
 }
 
 impl Operation {
     fn get_id(&self) -> String {
         match self {
-            Operation::Http(method, path) =>
+            Operation::Http { method, path } =>
                 format!("http_{}_{}", method.trim().to_lowercase(), path.trim().to_lowercase()),
         }
     }
 
     pub fn get_label(&self) -> String {
         match self {
-            Operation::Http(method, path) =>
+            Operation::Http { method, path } =>
                 format!("{} {}", method.trim().to_uppercase(), path.trim().to_lowercase()),
         }
     }
@@ -57,10 +60,8 @@ impl ServiceNode {
     }
 
     fn add_operation(&mut self, operation: Operation) {
-        // Generate an operation id that is uniquely associated to the service.
-        let raw_operation_id = format!("{}_{}", self.name.clone(), operation.get_id());
-        let operation_id = hash!(raw_operation_id.as_str());
-        self.operations.insert(operation_id, operation);
+        let operation_id = self.get_service_operation_id(&operation);
+        self.operations.insert(operation_id.clone(), operation);
     }
 
     fn add_target(&mut self, name: ServiceName, operation: Operation) {
@@ -145,10 +146,10 @@ mod test {
         let mut graph = ServiceNodeGraph::default();
         let service_name: String = "users-service".into();
         graph.add_service(service_name.clone());
-        graph.add_operation_to_service(
-            service_name,
-            Operation::Http("post".into(), "/users".into())
-        );
+        graph.add_operation_to_service(service_name, Operation::Http {
+            method: "post".into(),
+            path: "/users".into(),
+        });
         let json_string = serde_json::to_string(&graph).expect("Failed to serialize graph");
 
         assert_eq!(
@@ -162,14 +163,14 @@ mod test {
         let mut graph = ServiceNodeGraph::default();
         let service_name: String = "users-service".into();
         graph.add_service(service_name.clone());
-        graph.add_operation_to_service(
-            service_name.clone(),
-            Operation::Http("post".into(), "/users".into())
-        );
-        graph.add_operation_to_service(
-            service_name,
-            Operation::Http("get".into(), "/users/{user_id}".into())
-        );
+        graph.add_operation_to_service(service_name.clone(), Operation::Http {
+            method: "post".into(),
+            path: "/users".into(),
+        });
+        graph.add_operation_to_service(service_name, Operation::Http {
+            method: "get".into(),
+            path: "/users/{user_id}".into(),
+        });
         let json_string = serde_json::to_string(&graph).expect("Failed to serialize graph");
 
         assert_eq!(
@@ -185,11 +186,10 @@ mod test {
         let service_name_user: String = "users-service".into();
 
         graph.add_service(service_name_user.clone());
-        graph.add_target_to_service(
-            service_name_user,
-            service_name_book,
-            Operation::Http("post".into(), "/books".into())
-        );
+        graph.add_target_to_service(service_name_user, service_name_book, Operation::Http {
+            method: "post".into(),
+            path: "/books".into(),
+        });
 
         let json_string = serde_json::to_string(&graph).expect("Failed to serialize graph");
 
@@ -204,14 +204,14 @@ mod test {
         let mut graph = ServiceNodeGraph::default();
         let service_name: String = "users-service".into();
         graph.add_service(service_name.clone());
-        graph.add_operation_to_service(
-            service_name.clone(),
-            Operation::Http("post".into(), "/users".into())
-        );
-        graph.add_operation_to_service(
-            service_name,
-            Operation::Http("get".into(), "/users/{user_id}".into())
-        );
+        graph.add_operation_to_service(service_name.clone(), Operation::Http {
+            method: "post".into(),
+            path: "/users".into(),
+        });
+        graph.add_operation_to_service(service_name, Operation::Http {
+            method: "get".into(),
+            path: "/users/{user_id}".into(),
+        });
         let json_string = serde_json::to_string(&graph).expect("Failed to serialize graph");
 
         assert_eq!(

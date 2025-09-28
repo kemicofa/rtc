@@ -18,7 +18,7 @@ pub async fn build_dependencies(config: Config) -> Result<LogsToGraph> {
     };
 
     let service_logs: BMArc<dyn ServiceLogs> = match config.log_engine {
-        LogEngine::GCP { project_id, page_size, max_pages, custom_log_filter } => {
+        LogEngine::GCP { project_id, page_size, custom_log_filter } => {
             let custom_path_normalize_patterns = config.http_config
                 .map(|http| http.request_paths.custom_normalize_patterns)
                 .or(Some(vec![]))
@@ -27,7 +27,6 @@ pub async fn build_dependencies(config: Config) -> Result<LogsToGraph> {
             let service_logs = GCPServiceLogs::new(
                 project_id,
                 page_size.unwrap_or(100),
-                max_pages.unwrap_or(100),
                 custom_log_filter,
                 custom_path_normalize_patterns
             ).await?;
